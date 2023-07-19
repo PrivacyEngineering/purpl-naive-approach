@@ -1,4 +1,4 @@
-module github.com/louisloechel/purpl
+module github.com/PEngG7/naive-approach
 
 go 1.20
 

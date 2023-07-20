@@ -7,7 +7,7 @@
 // path to the JWT's public key file is passed as a parameter keyPath
 // grpc.UnaryInterceptor(purposelimiter.UnaryServerInterceptor(keyPath))
 
-package naive_approach
+package main
 
 import (
 	"context"
@@ -24,6 +24,7 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
+	"time"
 
 	_ "github.com/Siar-Akbayin/jwt-go-auth"
 	"github.com/google/differential-privacy/go/dpagg"
@@ -45,11 +46,11 @@ type CustomClaims struct {
 	jwt.RegisteredClaims
 }
 
-func UnaryServerInterceptor(policyPath string, serviceName string, purpose string, privateKey string) grpc.UnaryServerInterceptor {
-	return interceptor(policyPath, serviceName, purpose, privateKey)
+func UnaryServerInterceptor(policyPath string, serviceName string, purpose string, privateKey string, publicKey string) grpc.UnaryServerInterceptor {
+	return interceptor(policyPath, serviceName, purpose, privateKey, publicKey)
 }
 
-func interceptor(policyPath string, serviceName string, purpose string, privateKey string) grpc.UnaryServerInterceptor {
+func interceptor(policyPath string, serviceName string, purpose string, privateKey string, publicKey string) grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,
 		req interface{},
@@ -62,30 +63,32 @@ func interceptor(policyPath string, serviceName string, purpose string, privateK
 			return nil, err
 		}
 
+		publicKey, err := loadPublicKey(publicKey)
+		if err != nil {
+			return nil, err
+		}
+
 		// get token
 		token, err := generateToken(policyPath, serviceName, purpose, privateKey)
 		if err != nil {
 			return nil, err
 		}
-
 		tkn, err := jwt.ParseWithClaims(token, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-			return nil, nil
+			return publicKey, nil
 		})
-
 		// ----------------------
 		// !	Validation		!
 		// ----------------------
 
-		if err != nil {
-			return nil, err
-		}
+		//if err != nil {
+		//	return nil, err
+		//}
+		//
+		//if !tkn.Valid {
+		//	return nil, fmt.Errorf("invalid token")
+		//}
 
-		if !tkn.Valid {
-			return nil, fmt.Errorf("invalid token")
-		}
-
-		claims, ok := tkn.Claims.(*CustomClaims)
-
+		claims := tkn.Claims.(*CustomClaims)
 		// ----------------------
 		// !	Validation		!
 		// ----------------------
@@ -98,7 +101,6 @@ func interceptor(policyPath string, serviceName string, purpose string, privateK
 
 		// Invoke ProtoReflect() to get a protoreflect.Message
 		reflectedMsg := msg.ProtoReflect()
-
 		// Declare a slice to store field names
 		var fieldNames []string
 
@@ -109,7 +111,6 @@ func interceptor(policyPath string, serviceName string, purpose string, privateK
 
 			return true
 		})
-
 		// Iterate over the fields of the message
 		for _, field := range fieldNames {
 			// Check if the field is not in the allowed list
@@ -159,7 +160,6 @@ func interceptor(policyPath string, serviceName string, purpose string, privateK
 				}
 			}
 		}
-
 		return h, nil
 	}
 }
@@ -211,6 +211,18 @@ func generateToken(policyPath string, serviceName string, purpose string, privat
 		log.Fatalf("Error marshaling reduced policy: %v", err)
 	}
 
+	// Load the RSA private key from file
+	keyData, err := ioutil.ReadFile(privateKey)
+	if err != nil {
+		log.Fatalf("Error reading private key: %v", err)
+	}
+
+	// Parse the RSA private key
+	privateKeyy, err := jwt.ParseRSAPrivateKeyFromPEM(keyData)
+	if err != nil {
+		log.Fatalf("Error parsing private key: %v", err)
+	}
+
 	// Create the Claims
 	claims := struct {
 		Policy json.RawMessage `json:"policy"`
@@ -218,15 +230,14 @@ func generateToken(policyPath string, serviceName string, purpose string, privat
 	}{
 		reducedPolicyJSON,
 		jwt.RegisteredClaims{
-			//// Valid for 2 hrs
-			//ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * expirationInHours)),
-			//Issuer:    "tokenGenerator",
+			// Valid for 2 hrs
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 2)),
+			Issuer:    "tokenGenerator",
 		},
 	}
 
-	// Sign the token using RSA-SHA256
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-	tokenString, err := token.SignedString(privateKey)
+	tokenString, err := token.SignedString(privateKeyy)
 	if err != nil {
 		log.Fatalf("Error signing token: %v", err)
 		return "", err

@@ -7,7 +7,7 @@
 // path to the JWT's public key file is passed as a parameter keyPath
 // grpc.UnaryInterceptor(purposelimiter.UnaryServerInterceptor(keyPath))
 
-package main
+package naive_approach
 
 import (
 	"context"

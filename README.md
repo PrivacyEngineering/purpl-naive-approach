@@ -1,3 +1,9 @@
+<p align="center">
+	<img src="purpl.png" width=50" />
+</p>
+
+# Naïve gRPC purpose limitation and data minimization
+
 This module was implemented to measure the performance improvement of the separation of PAP/PDP and PEP.
 
 The so-called naive approach generates the token based on a policy in the interceptor itself and, consequently, at every 

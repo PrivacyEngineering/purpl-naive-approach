@@ -20,7 +20,7 @@ However, we have not tested a very large policy with dozens of services and purp
 latency of the naive approach even further. 
 
 # Citation
-To cite the [preprint version of the paper](https://arxiv.org/abs/2404.05598), please use the following BibTeX entry:
+To cite the [preprint version of the paper](https://arxiv.org/pdf/2404.05598.pdf), please use the following BibTeX entry:
 ```
 @misc{loechel2024hookin,
       title={Hook-in Privacy Techniques for gRPC-based Microservice Communication}, 
